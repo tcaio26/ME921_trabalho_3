@@ -41,6 +41,7 @@ hist(got_edges_r$weight, breaks = 50)
 ```
 
 ```{r chutes iniciais}
+set.seed(247005)
 mu = mean(got_edges_r$weight[got_edges_r$weight])^(-1)
 Q = 7
 n = nrow(got_nodes_r)
@@ -51,8 +52,34 @@ for (i in 1:n) {
   tau = append(tau,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
 }
 tau = matrix(tau, nrow = Q) #obs j pertence ao cluster i
+pi = matrix(0, nrow = Q, ncol = Q)
+alpha = matrix(0, nrow = Q, ncol = Q)
+beta = matrix(0, nrow = Q, ncol = Q)
 ```
 
-```{r implementação}
-
+```{r update parametros}
+theta = apply(tau, 1, sum)/n
+for (q in 1:Q) {
+  for (l in 1:Q){
+    p1 = 0
+    p2 = 0
+    p3 = 0
+    p4 = 0
+    p5 = 0
+    for (i in 1:n) {
+      for (j in 1:n) {
+        if(i!=j){
+          p1 = p1 + tau[q,i]*tau[l,j]*X[i,j]
+          p2 = p2 + tau[q,i]*tau[l,j]
+          p3 = p3 + tau[q,i]*tau[l,j]*X[i,j]*Y[i,j]
+          p4 = p4 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])
+          p5 = p5 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])*Y[i,j]
+        }
+      }
+    }
+    pi[q,l] = p1/p2
+    alpha[q,l] = (p1*p3)/(p1*p5 - p4*p3)
+    beta[q,l] = (p1^2)/(p1*p5 - p4*p3)
+  }
+}
 ```
