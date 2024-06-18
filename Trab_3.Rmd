@@ -23,30 +23,46 @@ got_nodes = read_csv('asoiaf-all-nodes.csv')
 characters_intercations = rbind(rename(got_edges[,c(1,4)], char = Source),rename(got_edges[,c(2,4)], char = Target)) %>% 
   group_by(char) %>% summarise(interactions = sum(weight))
 
-chars_reduzido = characters_intercations %>% filter(interactions>=150) %>% pull(char)
+chars_reduzido = characters_intercations %>% filter(interactions>=100) %>% pull(char)
 
 got_edges_r = got_edges %>% filter(Source%in% chars_reduzido & Target %in% chars_reduzido)
 got_nodes_r = got_nodes %>% filter(Id%in% chars_reduzido)
+
+n = nrow(got_nodes_r)
+```
+
+```{r funções}
+#fun_diff = function(elements, indices, positions)
 ```
 
 ```{r matrizes}
-X = got_edges_r %>% right_join(got_nodes_r, by = join_by(Source == Id)) %>% select(-5) %>% full_join(got_nodes_r, by = join_by(Target==Id)) %>% select(-c(3:5)) %>% table()
-
-Y = got_edges_r %>% right_join(got_nodes_r, by = join_by(Source == Id)) %>% select(-5) %>% full_join(got_nodes_r, by = join_by(Target==Id)) %>% select(-c(3,5)) %>% xtabs(weight~Source+Target, data = .)
+X = Y = matrix(0, nrow = n, ncol = n, dimnames = list('n1' = chars_reduzido, 'n2' = chars_reduzido))
+for(i in 1:n){
+  for(j in i:n){
+    if(nrow(filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])))==0){
+      X[i,j]=X[j,i]=0
+      Y[i,j]=Y[j,i]=0
+    }
+    if(nrow(filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])))==1){
+      wt = filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])) %>% pull(weight)
+      X[i,j]=X[j,i]=1
+      Y[i,j]=Y[j,i]=wt
+    }
+  }
+}
 ```
 
 ```{r heatmap}
-heatmap(X, Rowv = NA, Colv = NA, scale = 'none') #função está omitindo nomes
+heatmap(Y, Rowv = NA, Colv = NA, scale = 'none') #função está omitindo nomes
 hist(got_edges_r$weight, breaks = 50)
 ```
 
 ```{r chutes iniciais}
 set.seed(247005)
-mu = mean(got_edges_r$weight[got_edges_r$weight])^(-1)
-Q = 7
-n = nrow(got_nodes_r)
+mu = mean(got_edges_r$weight[got_edges_r$weight>0])^(-1)
+Q = 4
 theta = rep(1/Q, Q)
-chutes = sample(1:Q,n,replace = T,theta)
+chutes = sample(1:Q,n,replace = T,theta) #prioris envolvidas: clusters equiprováveis e número Q de clusters
 tau = c()
 for (i in 1:n) {
   tau = append(tau,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
@@ -69,17 +85,34 @@ for (q in 1:Q) {
     for (i in 1:n) {
       for (j in 1:n) {
         if(i!=j){
-          p1 = p1 + tau[q,i]*tau[l,j]*X[i,j]
           p2 = p2 + tau[q,i]*tau[l,j]
-          p3 = p3 + tau[q,i]*tau[l,j]*X[i,j]*Y[i,j]
-          p4 = p4 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])
-          p5 = p5 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])*Y[i,j]
+          if(X[i,j]>0){
+            p1 = p1 + tau[q,i]*tau[l,j]*X[i,j]
+            p3 = p3 + tau[q,i]*tau[l,j]*X[i,j]*Y[i,j]
+            p4 = p4 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])
+            p5 = p5 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])*Y[i,j]
+          }
         }
       }
     }
     pi[q,l] = p1/p2
     alpha[q,l] = (p1*p3)/(p1*p5 - p4*p3)
     beta[q,l] = (p1^2)/(p1*p5 - p4*p3)
+  }
+}
+
+tau2 = tau
+for(i in 1:n){
+  for(q in 1:Q){
+    t = 1
+    for(j in 1:n){
+      for(l in 1:Q){
+        if(j!=i & tau[l,j]==1){
+          t = t*(theta[q])*(X[i,j]*pi[q,l] + (1-X[i,j])*(1-pi[q,l]))*(dgamma(Y[i,j],alpha[q,l],beta[q,l])^(X[i,j]))
+        }
+      }
+    }
+    tau2[q,i] = t
   }
 }
 ```
