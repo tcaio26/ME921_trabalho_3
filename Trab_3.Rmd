@@ -4,7 +4,7 @@ output: html_notebook
 ---
 
 ```{r setup}
-setwd('/home/caio_theodore/Documents/r_data/ME912/Trab_3')
+#setwd('/home/caio_theodore/Documents/r_data/ME912/Trab_3')
 
 library(pacman)
 p_load(tidyverse, tidygraph)
