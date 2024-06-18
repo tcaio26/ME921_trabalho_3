@@ -4,4 +4,4 @@ Objetivo: Clusterização da rede de personagens de "A Song Of Ice And Fire", on
 
 Dados disponíveis em https://networkofthrones.wordpress.com/
 
-Implementação e interpretação de Weighted Stochastic Block Models (WSBM) baseada no artigo de Tin Lok James Ng1 e Thomas Brendan Murphy, Weighted stochastic block model (2021)
+Implementação e interpretação de Weighted Stochastic Block Models (WSBM) baseada no artigo de Tin Lok James Ng e Thomas Brendan Murphy, Weighted stochastic block model (2021)
