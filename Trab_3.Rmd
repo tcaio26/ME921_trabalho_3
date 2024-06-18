@@ -1,0 +1,58 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup}
+setwd('/home/caio_theodore/Documents/r_data/ME912/Trab_3')
+
+library(pacman)
+p_load(tidyverse, tidygraph)
+
+
+```
+
+```{r dados}
+got_edges = read_csv('asoiaf-all-edges.csv') %>% select(-3) #weight é numero de interações
+got_nodes = read_csv('asoiaf-all-nodes.csv')
+```
+
+```{r tratamento e redução}
+# got_nodes$house = case_when(got_nodes$Label,)
+
+characters_intercations = rbind(rename(got_edges[,c(1,4)], char = Source),rename(got_edges[,c(2,4)], char = Target)) %>% 
+  group_by(char) %>% summarise(interactions = sum(weight))
+
+chars_reduzido = characters_intercations %>% filter(interactions>=150) %>% pull(char)
+
+got_edges_r = got_edges %>% filter(Source%in% chars_reduzido & Target %in% chars_reduzido)
+got_nodes_r = got_nodes %>% filter(Id%in% chars_reduzido)
+```
+
+```{r matrizes}
+X = got_edges_r %>% right_join(got_nodes_r, by = join_by(Source == Id)) %>% select(-5) %>% full_join(got_nodes_r, by = join_by(Target==Id)) %>% select(-c(3:5)) %>% table()
+
+Y = got_edges_r %>% right_join(got_nodes_r, by = join_by(Source == Id)) %>% select(-5) %>% full_join(got_nodes_r, by = join_by(Target==Id)) %>% select(-c(3,5)) %>% xtabs(weight~Source+Target, data = .)
+```
+
+```{r heatmap}
+heatmap(X, Rowv = NA, Colv = NA, scale = 'none') #função está omitindo nomes
+hist(got_edges_r$weight, breaks = 50)
+```
+
+```{r chutes iniciais}
+mu = mean(got_edges_r$weight[got_edges_r$weight])^(-1)
+Q = 7
+n = nrow(got_nodes_r)
+theta = rep(1/Q, Q)
+chutes = sample(1:Q,n,replace = T,theta)
+tau = c()
+for (i in 1:n) {
+  tau = append(tau,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
+}
+tau = matrix(tau, nrow = Q) #obs j pertence ao cluster i
+```
+
+```{r implementação}
+
+```
