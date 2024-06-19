@@ -172,7 +172,8 @@ WSBM = function(X, Y, Q, iterations){
     tau = update_tau(X, Y, param, tau, Q, n)
   }
   etiquetas = apply(tau, 1, which.max)
-  return(list(clusters = etiquetas, proportions = param$theta, connections = param$pi, alpha = param$alpha, beta = param$beta))
+  weights = param$alpha/param$beta
+  return(list(clusters = etiquetas, proportions = param$theta, connections = param$pi, alpha = param$alpha, beta = param$beta, avg_weight = weights))
 }
 ```
 
