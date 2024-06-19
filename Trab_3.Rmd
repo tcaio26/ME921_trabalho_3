@@ -23,7 +23,7 @@ got_nodes = read_csv('asoiaf-all-nodes.csv')
 characters_intercations = rbind(rename(got_edges[,c(1,4)], char = Source),rename(got_edges[,c(2,4)], char = Target)) %>% 
   group_by(char) %>% summarise(interactions = sum(weight))
 
-chars_reduzido = characters_intercations %>% filter(interactions>=100) %>% pull(char)
+chars_reduzido = characters_intercations %>% filter(interactions>=0) %>% pull(char)
 
 got_edges_r = got_edges %>% filter(Source%in% chars_reduzido & Target %in% chars_reduzido)
 got_nodes_r = got_nodes %>% filter(Id%in% chars_reduzido)
@@ -36,7 +36,7 @@ n = nrow(got_nodes_r)
 ```
 
 ```{r matrizes}
-X = Y = matrix(0, nrow = n, ncol = n, dimnames = list('n1' = chars_reduzido, 'n2' = chars_reduzido))
+asoiaf_x = asoiaf_y = matrix(0, nrow = n, ncol = n, dimnames = list('n1' = chars_reduzido, 'n2' = chars_reduzido))
 for(i in 1:n){
   for(j in i:n){
     if(nrow(filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])))==0){
@@ -173,12 +173,33 @@ WSBM = function(X, Y, Q, iterations){
   }
   etiquetas = apply(tau, 1, which.max)
   weights = param$alpha/param$beta
-  return(list(clusters = etiquetas, proportions = param$theta, connections = param$pi, alpha = param$alpha, beta = param$beta, avg_weight = weights))
+  counts = param$theta*n
+  
+  verossimilhanca = 0
+  for(i in 1:n){
+    for(j in 1:n){
+      for(q in 1:Q){
+        verossimilhanca = verossimilhanca + log(param$theta[q])
+        for(l in 1:Q){
+          if(i!=j){
+            if(X[i,j]==0){
+              verossimilhanca = verossimilhanca + log(1-param$pi[q,l])
+            }
+            if(Y[i,j]>0){
+              verossimilhanca = verossimilhanca + log(param$pi[q,l]) + log(dgamma(Y[i,j],param$alpha[q,l],param$beta[q,l]))
+            }
+          }
+        }
+      }
+    }
+  }
+  bic = Q*log(n) - 2*verossimilhanca
+  return(list(clusters = etiquetas, proportions = param$theta, counts = counts, connections = param$pi, alpha = param$alpha, beta = param$beta, avg_weight = weights, BIC = bic))
 }
 ```
 
 ```{r dados exemplo 2 clust}
-n = 100
+n = 200
 t = sample(c(1,2),n,replace = T,prob = c(0.7, 0.3))
 pit = matrix(c(0.8,0.2,0.3,0.9),byrow=T,nrow=2)
 alphat = matrix(c(10,0.3,3,0.5),byrow=T,nrow=2)
@@ -233,4 +254,12 @@ for (i in 1:n) {
 }
 tau0 = matrix(tau0, nrow = n, byrow = T) #obs j pertence ao cluster i
 (dtau = apply(tau0, 2, sum)/n)
+```
+
+```{r}
+for(d in 2:5){
+  print(d)
+  w = WSBM(X, Y, d, 100)
+  c = append(c, w$BIC)
+}
 ```
