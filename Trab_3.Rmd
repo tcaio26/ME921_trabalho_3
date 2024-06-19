@@ -58,61 +58,70 @@ hist(got_edges_r$weight, breaks = 50)
 ```
 
 ```{r chutes iniciais}
-set.seed(247005)
 mu = mean(got_edges_r$weight[got_edges_r$weight>0])^(-1)
 Q = 4
-theta = rep(1/Q, Q)
 chutes = sample(1:Q,n,replace = T,theta) #prioris envolvidas: clusters equiprováveis e número Q de clusters
-tau = c()
+tau0 = c()
 for (i in 1:n) {
-  tau = append(tau,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
+  tau0 = append(tau0,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
 }
-tau = matrix(tau, nrow = Q) #obs j pertence ao cluster i
-pi = matrix(0, nrow = Q, ncol = Q)
-alpha = matrix(0, nrow = Q, ncol = Q)
-beta = matrix(0, nrow = Q, ncol = Q)
+tau0 = matrix(tau0, nrow = n, byrow = T) #obs j pertence ao cluster i
 ```
 
-```{r update parametros}
-theta = apply(tau, 1, sum)/n
-for (q in 1:Q) {
-  for (l in 1:Q){
-    p1 = 0
-    p2 = 0
-    p3 = 0
-    p4 = 0
-    p5 = 0
-    for (i in 1:n) {
-      for (j in 1:n) {
-        if(i!=j){
-          p2 = p2 + tau[q,i]*tau[l,j]
-          if(X[i,j]>0){
-            p1 = p1 + tau[q,i]*tau[l,j]*X[i,j]
-            p3 = p3 + tau[q,i]*tau[l,j]*X[i,j]*Y[i,j]
-            p4 = p4 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])
-            p5 = p5 + tau[q,i]*tau[l,j]*X[i,j]*log(Y[i,j])*Y[i,j]
+```{r updates função}
+update_param = function(X, Y, tau){
+  theta = apply(tau, 2, sum)
+  for (q in 1:Q) {
+    for (l in 1:Q){
+      p1 = 0
+      p2 = 0
+      p3 = 0
+      p4 = 0
+      p5 = 0
+      for (i in 1:n) {
+        for (j in 1:n) {
+          if(i!=j){
+            p2 = p2 + tau[i,q]*tau[j,l]
+            if(X[i,j]>0){
+              p1 = p1 + tau[i,q]*tau[j,l]*X[i,j]
+              p3 = p3 + tau[i,q]*tau[j,l]*X[i,j]*Y[i,j]
+              p4 = p4 + tau[i,q]*tau[j,l]*X[i,j]*log(Y[i,j])
+              p5 = p5 + tau[i,q]*tau[j,l]*X[i,j]*log(Y[i,j])*Y[i,j]
+            }
           }
         }
       }
+      pi[q,l] = p1/p2
+      alpha[q,l] = (p1*p3)/(p1*p5 - p4*p3)
+      beta[q,l] = (p1^2)/(p1*p5 - p4*p3)
     }
-    pi[q,l] = p1/p2
-    alpha[q,l] = (p1*p3)/(p1*p5 - p4*p3)
-    beta[q,l] = (p1^2)/(p1*p5 - p4*p3)
   }
+  return(list(theta = theta, pi = pi, alpha = alpha, beta = beta))
 }
 
-tau2 = tau
-for(i in 1:n){
-  for(q in 1:Q){
-    t = 1
-    for(j in 1:n){
-      for(l in 1:Q){
-        if(j!=i & tau[l,j]==1){
-          t = t*(theta[q])*(X[i,j]*pi[q,l] + (1-X[i,j])*(1-pi[q,l]))*(dgamma(Y[i,j],alpha[q,l],beta[q,l])^(X[i,j]))
+update_tau = function(X, Y, param, tau){
+  tau2 = as.matrix(tau)
+  theta = param$theta
+  pi = param$pi
+  alpha = param$alpha
+  beta = param$beta
+  for(i in 1:n){
+    for(q in 1:Q){
+      t = 1
+      for(j in 1:n){
+        for(l in 1:Q){
+          if(j!=i & tau[j,l]==1){
+            t = t*(theta[q])*(X[i,j]*pi[q,l] + (1-X[i,j])*(1-pi[q,l]))*(dgamma(Y[i,j],alpha[q,l],beta[q,l])^(X[i,j]))
+          }
         }
       }
+      tau2[i,q] = t
     }
-    tau2[q,i] = t
   }
+  return(tau2)
 }
+```
+
+```{r teste função}
+param = update_param(X, Y, tau0)
 ```
