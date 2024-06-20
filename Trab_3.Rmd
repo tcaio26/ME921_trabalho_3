@@ -23,7 +23,7 @@ got_nodes = read_csv('asoiaf-all-nodes.csv')
 characters_intercations = rbind(rename(got_edges[,c(1,4)], char = Source),rename(got_edges[,c(2,4)], char = Target)) %>% 
   group_by(char) %>% summarise(interactions = sum(weight))
 
-chars_reduzido = characters_intercations %>% arrange(desc(interactions)) %>% head(100) %>% pull(char)
+chars_reduzido = characters_intercations %>% arrange(desc(interactions)) %>% head(796) %>% pull(char)
 
 got_edges_r = got_edges %>% filter(Source%in% chars_reduzido & Target %in% chars_reduzido)
 got_nodes_r = got_nodes %>% filter(Id%in% chars_reduzido)
@@ -221,6 +221,7 @@ crit_WSBM = function(X, Y,range = 1:3, iterations=50){
   bic = numeric(0)
   v = numeric(0)
   for(z in range){
+    print(paste0('Q=',z))
     m = WSBM(X, Y, z, iterations)
     icl = append(icl, m$ICL)
     bic = append(bic, m$BIC)
