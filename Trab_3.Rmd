@@ -7,7 +7,7 @@ output: html_notebook
 #setwd('/home/caio_theodore/Documents/r_data/ME912/Trab_3')
 
 library(pacman)
-p_load(tidyverse, Matrix, greed, ggpubr)
+p_load(tidyverse, Matrix)
 
 
 ```
@@ -23,56 +23,28 @@ got_nodes = read_csv('asoiaf-all-nodes.csv')
 characters_intercations = rbind(rename(got_edges[,c(1,4)], char = Source),rename(got_edges[,c(2,4)], char = Target)) %>% 
   group_by(char) %>% summarise(interactions = sum(weight))
 
-chars_reduzido = characters_intercations %>% filter(interactions>=0) %>% pull(char)
+chars_reduzido = characters_intercations %>% arrange(desc(interactions)) %>% head(100) %>% pull(char)
 
 got_edges_r = got_edges %>% filter(Source%in% chars_reduzido & Target %in% chars_reduzido)
 got_nodes_r = got_nodes %>% filter(Id%in% chars_reduzido)
 
 n = nrow(got_nodes_r)
-```
 
-```{r funções}
-#fun_diff = function(elements, indices, positions)
-```
-
-```{r matrizes}
 asoiaf_x = asoiaf_y = matrix(0, nrow = n, ncol = n, dimnames = list('n1' = chars_reduzido, 'n2' = chars_reduzido))
 for(i in 1:n){
   for(j in i:n){
     if(nrow(filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])))==0){
-      X[i,j]=X[j,i]=0
-      Y[i,j]=Y[j,i]=0
+      asoiaf_x[i,j]=asoiaf_x[j,i]=0
+      asoiaf_y[i,j]=asoiaf_y[j,i]=0
     }
     if(nrow(filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])))==1){
       wt = filter(got_edges_r, (Source==chars_reduzido[i]& Target==chars_reduzido[j])|(Source==chars_reduzido[j]& Target==chars_reduzido[i])) %>% pull(weight)
-      X[i,j]=X[j,i]=1
-      Y[i,j]=Y[j,i]=wt
+      asoiaf_x[i,j]=asoiaf_x[j,i]=1
+      asoiaf_y[i,j]=asoiaf_y[j,i]=wt
     }
   }
 }
-```
-
-```{r heatmap}
-
-```
-
-```{r dados teste}
-n = 100
-t = sample(c(1,2,3),n,replace = T,prob = c(0.5,0.3,0.2))
-pit = matrix(c(0.6,0.2,0.3,0.3,0.9,0.1,0.6,0.5,0.2),byrow=T,nrow=3)
-alphat = matrix(c(0.5,2,1,0.3,0.02,6,2,0.05,3),byrow=T,nrow=3)
-betat = matrix(c(5,0.4,5,3,12,0.7,6,0.2,0.6),byrow=T,nrow=3)
-X = Y = matrix(0, nrow = n, ncol = n)
-for(i in 1:n){
-  for(j in 1:n){
-    if(i!=j){
-      X[i,j] = sample(c(0,1), 1, T, prob = c(1-pit[t[i],t[j]], pit[t[i],t[j]]))
-      Y[i,j] = X[i,j]*  rgamma(1,alphat[t[i],t[j]],betat[t[i],t[j]])
-    }
-  }
-}
-t %>% table() %>% proportions()
-heatmap(X, Rowv = NA, Colv = NA, scale = 'none')
+heatmap(asoiaf_x, Rowv = NA, Colv = NA, scale = 'none')
 ```
 
 ```{r chutes iniciais}
@@ -88,7 +60,7 @@ tau0 = matrix(tau0, nrow = n, byrow = T) #obs j pertence ao cluster i
 ```
 
 ```{r updates função}
-update_param = function(X, Y, tau, Q, n){
+update_param = function(X, Y, tau, Q, n, a, b){
   theta = apply(tau, 2, sum)/n
   pi = matrix(0, nrow = Q, ncol = Q)
   alpha = matrix(0, nrow = Q, ncol = Q)
@@ -113,9 +85,9 @@ update_param = function(X, Y, tau, Q, n){
           }
         }
       }
-      pi[q,l] = p1/p2
-      alpha[q,l] = (p1*p3)/(p1*p5 - p4*p3)
-      beta[q,l] = (p1^2)/(p1*p5 - p4*p3)
+      pi[q,l] = ifelse(p2==0,10^(-5),p1/p2)
+      alpha[q,l] = ifelse((p1*p5 - p4*p3)==0,a,(p1*p3)/(p1*p5 - p4*p3))
+      beta[q,l] = ifelse((p1*p5 - p4*p3)==0,b,(p1^2)/(p1*p5 - p4*p3))
     }
   }
   return(list(theta = theta, pi = pi, alpha = alpha, beta = beta))
@@ -156,19 +128,23 @@ update_tau = function(X, Y, param, tau, Q, n){
 ```
 
 ```{r função final}
-WSBM = function(X, Y, Q, iterations){
+WSBM = function(X, Y, Q, iterations=50){
   n = nrow(X)
   g = kmeans(X, Q)
   g = g$cluster
+  mu = mean(Y[Y>0])
+  var = sd(Y[Y>0])^2
+  a = (mu^2)/var
+  b = mu/var
   tau0 = c()
   for (i in 1:n) {
     tau0 = append(tau0,c(rep(0,g[i]-1),1,rep(0,Q-g[i])))
   }
   tau0 = matrix(tau0, nrow = n, byrow = T)
-  param = update_param(X, Y, tau0, Q, n)
+  param = update_param(X, Y, tau0, Q, n, a, b)
   tau = update_tau(X, Y, param, tau0, Q, n)
   for(k in 1:iterations){
-    param = update_param(X, Y, tau, Q, n)
+    param = update_param(X, Y, tau, Q, n, a, b)
     tau = update_tau(X, Y, param, tau, Q, n)
   }
   etiquetas = apply(tau, 1, which.max)
@@ -177,29 +153,32 @@ WSBM = function(X, Y, Q, iterations){
   
   verossimilhanca = 0
   for(i in 1:n){
-    for(j in 1:n){
-      for(q in 1:Q){
-        verossimilhanca = verossimilhanca + log(param$theta[q])
-        for(l in 1:Q){
-          if(i!=j){
-            if(X[i,j]==0){
-              verossimilhanca = verossimilhanca + log(1-param$pi[q,l])
-            }
-            if(Y[i,j]>0){
-              verossimilhanca = verossimilhanca + log(param$pi[q,l]) + log(dgamma(Y[i,j],param$alpha[q,l],param$beta[q,l]))
+    for(q in 1:Q){
+        verossimilhanca = verossimilhanca + log(param$theta[q])*tau[i,q]
+        if(tau[i,q]>0){
+          for(j in 1:n){
+            for(l in 1:Q){
+              if(i!=j & tau[j,l]>0){
+                if(X[i,j]==0){
+                  verossimilhanca = verossimilhanca + log(1-param$pi[q,l])
+                }
+                if(Y[i,j]>0){
+                  verossimilhanca = verossimilhanca + log(param$pi[q,l]) + log(dgamma(Y[i,j],param$alpha[q,l],param$beta[q,l]))
+                }
+              }
             }
           }
         }
-      }
     }
   }
-  bic = Q*log(n) - 2*verossimilhanca
-  return(list(clusters = etiquetas, proportions = param$theta, counts = counts, connections = param$pi, alpha = param$alpha, beta = param$beta, avg_weight = weights, BIC = bic))
+  icl = verossimilhanca -(3/2)*Q*(Q+1)*log(n)*(n-1) - (Q-1)*log(n)/2
+  bic = (2*verossimilhanca) - ((3*(Q^2)+Q)*log(n)) #q thetas, q^2 alphas, q^2 pi,q^2 betas
+  return(list(clusters = etiquetas, proportions = param$theta, counts = counts, connections = param$pi, alpha = param$alpha, beta = param$beta, avg_weight = weights, ICL = icl, BIC = bic, log_lik = verossimilhanca))
 }
 ```
 
 ```{r dados exemplo 2 clust}
-n = 200
+n = 100
 t = sample(c(1,2),n,replace = T,prob = c(0.7, 0.3))
 pit = matrix(c(0.8,0.2,0.3,0.9),byrow=T,nrow=2)
 alphat = matrix(c(10,0.3,3,0.5),byrow=T,nrow=2)
@@ -215,20 +194,10 @@ for(i in 1:n){
 }
 t %>% table() %>% proportions()
 heatmap(X, Rowv = NA, Colv = NA, scale = 'none')
-
-Q = 2
-theta0 = c(0.5,0.5)
-chutes = sample(1:Q,n,replace = T,theta0) #prioris envolvidas: prob de clusters e número Q de clusters
-tau0 = c()
-for (i in 1:n) {
-  tau0 = append(tau0,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
-}
-tau0 = matrix(tau0, nrow = n, byrow = T) #obs j pertence ao cluster i
-(dtau = apply(tau0, 2, sum)/n)
 ```
 
 ```{r dados exemplo 3 clust}
-n = 100
+n = 200
 t = sample(c(1,2,3),n,replace = T,prob = c(0.5,0.3,0.2))
 pit = matrix(c(0.6,0.2,0.3,0.3,0.9,0.1,0.6,0.5,0.2),byrow=T,nrow=3)
 alphat = matrix(c(0.5,2,1,0.3,0.02,6,2,0.05,3),byrow=T,nrow=3)
@@ -244,22 +213,32 @@ for(i in 1:n){
 }
 t %>% table() %>% proportions()
 heatmap(X, Rowv = NA, Colv = NA, scale = 'none')
-
-Q = 3
-theta0 = c(0.4,0.3,0.3)
-chutes = sample(1:Q,n,replace = T,theta0) #prioris envolvidas: prob de clusters e número Q de clusters
-tau0 = c()
-for (i in 1:n) {
-  tau0 = append(tau0,c(rep(0,chutes[i]-1),1,rep(0,Q-chutes[i])))
-}
-tau0 = matrix(tau0, nrow = n, byrow = T) #obs j pertence ao cluster i
-(dtau = apply(tau0, 2, sum)/n)
 ```
 
-```{r}
-for(d in 2:5){
-  print(d)
-  w = WSBM(X, Y, d, 100)
-  c = append(c, w$BIC)
+```{r WSBM ICL}
+crit_WSBM = function(X, Y,range = 1:3, iterations=50){
+  icl = numeric(0)
+  bic = numeric(0)
+  v = numeric(0)
+  for(z in range){
+    m = WSBM(X, Y, z, iterations)
+    icl = append(icl, m$ICL)
+    bic = append(bic, m$BIC)
+    v = append(v, m$log_lik)
+  }
+  return(list(ICL = icl, BIC = bic, log_lik = v))
 }
 ```
+
+
+
+
+$$\mu = \alpha/\beta,\;\sigma^2=\alpha/\beta^2\Rightarrow\alpha=\mu\beta,\;\sigma^2=\mu/\beta\therefore\beta=\mu/\sigma^2\Rightarrow\alpha=\mu^2/\sigma^2$$
+
+
+
+
+
+
+
+
