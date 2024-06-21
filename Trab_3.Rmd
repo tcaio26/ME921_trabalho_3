@@ -232,15 +232,135 @@ crit_WSBM = function(X, Y,range = 1:3, iterations=50){
   }
   return(list(ICL = icl, BIC = bic, log_lik = v)) #está dando erro no banco final, não sei porquê, não usei
 }
+
+update_param_SBM = function(X, tau, Q, n){
+  theta = apply(tau, 2, sum)/n
+  pi = matrix(0, nrow = Q, ncol = Q)
+  for (q in 1:Q) {
+    for (l in 1:Q){
+      p1 = 0
+      p2 = 0
+      for (i in 1:n) {
+        for (j in 1:n) {
+          if(i!=j){
+            p2 = p2 + tau[i,q]*tau[j,l]
+            if(X[i,j]>0){
+              p1 = p1 + tau[i,q]*tau[j,l]*X[i,j]
+            }
+          }
+        }
+      }
+      pi[q,l] = ifelse(p2==0,10^(-5),p1/p2)
+    }
+  }
+  return(list(theta = theta, pi = pi))
+}
+
+update_tau_SBM = function(X, param, tau, Q, n){
+  tau2 = as.matrix(tau)
+  theta = param$theta
+  pi = param$pi
+  for(i in 1:n){
+    for(q in 1:Q){
+      t = 1
+      for(j in 1:n){
+        for(l in 1:Q){
+          if(j!=i & tau[j,l]==1){
+            if(X[i,j]>0){
+              t = t*(pi[q,l])
+            }
+            if(X[i,j]==0){
+              t = t*(1-pi[q,l])
+            }
+          }
+        }
+      }
+      tau2[i,q] = t*theta[q]
+    }
+  }
+  t = apply(tau2, 1, which.max)
+  tau = numeric(0)
+  for (i in 1:n) {
+    tau = append(tau,c(rep(0,t[i]-1),1,rep(0,Q-t[i])))
+  }
+  tau = matrix(tau, nrow = n, byrow = T)
+  return(tau)
+}
+SBM = function(X, Q, iterations=50, show.percent=F){
+  e = TRUE
+  while (e) {
+    n = nrow(X)
+    g = kmeans(X, Q)
+    g = g$cluster
+    tau0 = c()
+    for (i in 1:n) {
+      tau0 = append(tau0,c(rep(0,g[i]-1),1,rep(0,Q-g[i])))
+    }
+    tau0 = matrix(tau0, nrow = n, byrow = T)
+    param = update_param_SBM(X, tau0, Q, n)
+    tau = update_tau_SBM(X, param, tau0, Q, n)
+    for(k in 1:iterations){
+      param = update_param_SBM(X, tau, Q, n)
+      tau = update_tau_SBM(X, param, tau, Q, n)
+      if(k%%10==0& show.percent) print(paste0(k,' iterations ran --- ',100*k/iterations,'%'))
+    }
+    etiquetas = apply(tau, 1, which.max)
+    counts = param$theta*n
+    if(all(param$theta>0&param$theta<1)|Q==1){
+      e = FALSE
+    }
+    else{
+      print(paste0('probabilidade(s) limite'))
+    }
+  }
+  verossimilhanca = 0
+  for(i in 1:n){
+    for(q in 1:Q){
+        verossimilhanca = verossimilhanca + log(param$theta[q])*tau[i,q]
+        if(tau[i,q]>0){
+          for(j in 1:n){
+            for(l in 1:Q){
+              if(i!=j & tau[j,l]>0){
+                if(X[i,j]==0){
+                  verossimilhanca = verossimilhanca + log(1-param$pi[q,l])
+                }
+                if(X[i,j]>0){
+                  verossimilhanca = verossimilhanca + log(param$pi[q,l])
+                }
+              }
+            }
+          }
+        }
+    }
+  }
+  
+  icl = verossimilhanca -(3/2)*Q*(Q+1)*log(n*(n-1)) - (Q-1)*log(n)/2
+  bic = (2*verossimilhanca) - ((3*(Q^2)+Q)*log(n)) #q thetas, q^2 alphas, q^2 pi,q^2 betas
+  return(list(clusters = etiquetas, proportions = param$theta, counts = counts, connections = param$pi, ICL = icl, BIC = bic, log_lik = verossimilhanca))
+}
+
+crit_SBM = function(X,range = 1:3, iterations=50){
+  icl = numeric(0)
+  bic = numeric(0)
+  v = numeric(0)
+  for(z in range){
+    print(paste0('Q=',z))
+    m = SBM(X, z, iterations)
+    icl = append(icl, m$ICL)
+    bic = append(bic, m$BIC)
+    v = append(v, m$log_lik)
+  }
+  return(list(ICL = icl, BIC = bic, log_lik = v)) #está dando erro no banco final, não sei porquê, não usei
+}
 ```
 
 ```{r dados exemplo 2 clust}
-n = 10
+n = 100
 t = sample(c(1,2),n,replace = T,prob = c(0.7, 0.3))
 pit = matrix(c(0.8,0.2,0.3,0.9),byrow=T,nrow=2)
 alphat = matrix(c(10,0.3,3,0.5),byrow=T,nrow=2)
 betat = matrix(c(2,1,0.2,1),byrow=T,nrow=2)
-X = Y = matrix(0, nrow = n, ncol = n, dimnames = c('v1' = letters[1:10], 'v2' = letters[1:10]))
+X = Y = matrix(0, nrow = n, ncol = n)
 for(i in 1:n){
   for(j in 1:n){
     if(i!=j){
@@ -300,6 +420,7 @@ for (i in 1:10) {
   (w$bic = append(w$bic, m$BIC))
   (w$loglik = append(w$loglik, m$log_lik))
 }
+modelo_3q=WSBM(asoiaf_x_full,asoiaf_y_full,3,100, show.percent = T)
 ```
 
 ```{r descritivo}
@@ -318,7 +439,9 @@ plot(network, vertex.size = log(deg, 2), vertex.label = NA, rescale = T, asp =0,
      edge.width = log(E(network)$weight, 6))
 ```
 
-
+```{r SBM}
+critsbm=crit_SBM(asoiaf_x_full,1:5,50)
+```
 
 
 $$\mu = \alpha/\beta,\;\sigma^2=\alpha/\beta^2\Rightarrow\alpha=\mu\beta,\;\sigma^2=\mu/\beta\therefore\beta=\mu/\sigma^2\Rightarrow\alpha=\mu^2/\sigma^2$$
