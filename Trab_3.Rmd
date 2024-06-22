@@ -7,7 +7,7 @@ output: html_notebook
 #setwd('/home/caio_theodore/Documents/r_data/ME912/Trab_3')
 
 library(pacman)
-p_load(tidyverse, Matrix, MASS, xtable, igraph, gplots)
+p_load(tidyverse, Matrix, MASS, xtable, igraph, gplots, plot.matrix, data.table)
 
 
 ```
@@ -421,6 +421,19 @@ for (i in 1:10) {
   (w$loglik = append(w$loglik, m$log_lik))
 }
 modelo_3q=WSBM(asoiaf_x_full,asoiaf_y_full,3,100, show.percent = T)
+modelo_3q_2=WSBM(asoiaf_x_full,asoiaf_y_full,3,100, show.percent = T)
+clustered_characters = cbind(characters_intercations, modelo_3q$clusters)
+write_csv(clustered_characters, 'personagens_com_clusters.csv')
+write_csv(cbind(1:5, w$icl, w$bic, w$loglik) %>% as.data.frame() %>% rename(Q=V1, ICL = V2, BIC = V3, Log_Ver = V4) %>% remove_rownames(),
+          'criterios.csv')
+```
+
+```{r clustering 5q}
+clustering_5q = read_csv('clusters_5q.csv')
+pi_5q = read_csv('connections_5q.csv') %>% as.matrix()
+alpha_5q = read_csv('alpha_5q.csv') %>% as.matrix()
+beta_5q = read_csv('beta_5q.csv') %>% as.matrix()
+modelo_5q = list(clusters = clustering_5q$`modelo_5q$clusters`, connections = pi_5q, alpha = alpha_5q, beta = beta_5q)
 ```
 
 ```{r descritivo}
