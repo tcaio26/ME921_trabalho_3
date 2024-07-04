@@ -9,3 +9,5 @@ Dados disponíveis em https://networkofthrones.wordpress.com/
 "final model" contém as matrizes alpha, beta e pi para o modelo final, e personagens com etiquetas de cluster.
 
 "images" contém as imagens geradas
+
+"ME921_atividade_3.pdf" é o arquivo final do trabalho. Ainda não traduzi "WSBM_in_ASOIAF".
