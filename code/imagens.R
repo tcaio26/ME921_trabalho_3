@@ -1,5 +1,3 @@
-setwd('C:/Users/caio.oliveira/OneDrive - Toradex AG/Documentos/unicamp/trab_3_got')
-
 paleta = c('#fad68a','#963131','#800080','#257ca3','#1f5514','#543310')
 
 png('heatmap_full.png', width = 24, height = 24, units = 'cm', res = 120)
