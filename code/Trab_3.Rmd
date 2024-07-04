@@ -4,12 +4,8 @@ output: html_notebook
 ---
 
 ```{r setup}
-#setwd('/home/caio_theodore/Documents/r_data/ME912/Trab_3')
-
 library(pacman)
 p_load(tidyverse, Matrix, MASS, xtable, igraph, gplots, plot.matrix, data.table)
-
-
 ```
 
 ```{r dados}
@@ -451,18 +447,3 @@ deg = degree(network)
 plot(network, vertex.size = log(deg, 2), vertex.label = NA, rescale = T, asp =0, axes =F,
      edge.width = log(E(network)$weight, 6))
 ```
-
-```{r SBM}
-critsbm=crit_SBM(asoiaf_x_full,1:5,50)
-```
-
-
-$$\mu = \alpha/\beta,\;\sigma^2=\alpha/\beta^2\Rightarrow\alpha=\mu\beta,\;\sigma^2=\mu/\beta\therefore\beta=\mu/\sigma^2\Rightarrow\alpha=\mu^2/\sigma^2$$
-
-
-
-
-
-
-
-
