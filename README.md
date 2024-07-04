@@ -9,3 +9,5 @@ Data available on https://networkofthrones.wordpress.com/
 "final model" contains alpha, beta and pi matrices for the final model, as well as characters with cluster labels.
 
 "images" contains images generated.
+
+"ME921_atividade_3.pdf" is the university project delivered, in portuguese. "WSBM_in_ASOIAF__english.pdf" is the adapted english translation.
