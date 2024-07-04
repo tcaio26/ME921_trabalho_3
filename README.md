@@ -1,7 +1,7 @@
-Trabalho de ME921 - Aprendizado de máquinas não supervisionado
+Implementation and interpretation of a Weighted Stochastic Block Model (WSBM) model on A Song Of Ice And Fire interaction data, to find groups in characters of the franchise. Originally meant for a university project.
 
-Objetivo: Clusterização da rede de personagens de "A Song Of Ice And Fire", onde personagens são nodos e possuem conexões caso tenham interagido em algum momento nos livros, com pesos para o número de interações.
+Data available on https://networkofthrones.wordpress.com/
 
 Dados disponíveis em https://networkofthrones.wordpress.com/
 
-Implementação e interpretação de Weighted Stochastic Block Models (WSBM) baseada no artigo de Tin Lok James Ng e Thomas Brendan Murphy, Weighted stochastic block model (2021)
+Implementação e interpretação de Weighted Stochastic Block Models (WSBM) baseada no artigo de Tin Lok James Ng e Thomas Brendan Murphy, Weighted stochastic block model (2021), em dados de interações de personagens de A Song Of Ice And Fire, procurando grupos entre os personagens. Originalmente para um trabalho de faculdade.
